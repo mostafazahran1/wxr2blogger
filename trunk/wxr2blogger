@@ -1,0 +1,215 @@
+#!/usr/bin/python
+
+#  This file is part of wxr2blogger, a program for converting
+#  WordPress WXR files into Blogger Atom files.
+#
+#  Copyright (C) 2008 Robert Walsh
+#     rjwalsh@durables.org
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License as
+#  published by the Free Software Foundation; either version 2 of the
+#  License, or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+#  02111-1307, USA.
+#
+#  The GNU General Public License is contained in the file COPYING.
+
+import sys
+
+if len(sys.argv) != 4:
+    sys.stderr.write("usage: %s wordpress.xml author id\n" % sys.argv[0])
+    sys.exit(1)
+
+AUTHOR_NAME = sys.argv[2]
+AUTHOR_ID = sys.argv[3]
+
+from xml.dom import Node
+
+def parse_comment(comment):
+    com = {'author':'', 'email':'', 'url':'', 'date':'', 'content':''}
+
+    for i in comment.childNodes:
+        if i.nodeType != Node.ELEMENT_NODE:
+            continue
+
+        if i.tagName == "wp:comment_author":
+            if len(i.childNodes) != 0:
+                com['author'] = i.childNodes[0].data
+        elif i.tagName == "wp:comment_author_email":
+            if len(i.childNodes) != 0:
+                com['email'] = i.childNodes[0].data
+        elif i.tagName == "wp:comment_author_url":
+            if len(i.childNodes) != 0:
+                com['url'] = i.childNodes[0].data
+        elif i.tagName == "wp:comment_date_gmt":
+            if len(i.childNodes) != 0:
+                com['date'] = i.childNodes[0].data
+        elif i.tagName == "wp:comment_content":
+            if len(i.childNodes) != 0:
+                com['content'] = i.childNodes[0].data
+
+    return com
+
+def parse_item(item):
+    it = {'categories': [], 'content': "", 'comments': []}
+    for i in item.childNodes:
+        if i.nodeType == Node.ELEMENT_NODE:
+            if i.tagName == "title":
+                if len(i.childNodes) != 0:
+                    it['title'] = i.childNodes[0].data
+            if i.tagName == "link":
+                if len(i.childNodes) != 0:
+                    it['link'] = i.childNodes[0].data
+            elif i.tagName == "wp:post_date":
+                it['date'] = i.childNodes[0].data
+            elif i.tagName == "dc:creator":
+                it['creator'] = i.childNodes[0].data
+            elif i.tagName == "category":
+                c = i.childNodes[0].data
+                if c not in it['categories']:
+                    it['categories'].append(i.childNodes[0].data)
+            elif i.tagName == "description":
+                if len(i.childNodes) != 0:
+                    it['description'] = i.childNodes[0].data
+            elif i.tagName == "content:encoded":
+                if len(i.childNodes) != 0:
+                    it['content'] = i.childNodes[0].data
+            elif i.tagName == "wp:comment":
+                it['comments'].append(parse_comment(i))
+    return it
+
+def parse_channel(channel):
+    ch = {'title': "", 'items': []}
+    for i in channel.childNodes:
+        if i.nodeType == Node.ELEMENT_NODE:
+            if i.tagName == "title":
+                ch['title'] = i.childNodes[0].data
+            elif i.tagName == "item":
+                it = parse_item(i)
+                if 'title' in it:
+                    ch['items'].append(parse_item(i))
+    return ch
+
+import codecs
+f = codecs.open(sys.argv[1], "r", "utf-8")
+u = f.read()
+
+from xml.dom.minidom import parseString
+p = parseString(u.encode("utf-8"))
+
+root=p.documentElement
+
+for i in root.childNodes:
+    if i.nodeType == Node.ELEMENT_NODE:
+        if i.tagName == "channel":
+            ch = parse_channel(i)
+
+def get_output():
+    return u"""<?xml version='1.0' encoding='iso-8859-1'?>
+<?xml-stylesheet href="http://www.blogger.com/styles/atom.css"
+                 type="text/css"?>
+<feed xmlns='http://www.w3.org/2005/Atom'
+      xmlns:openSearch='http://a9.com/-/spec/opensearchrss/1.0/'
+      xmlns:thr='http://purl.org/syndication/thread/1.0'>
+"""
+
+number = 0
+
+output = ""
+
+from cgi import escape
+for i in ch['items']:
+    if output == "": output = get_output()
+    cat = """<category scheme='http://schemas.google.com/g/2005#kind' term='http://schemas.google.com/blogger/2008/kind#post'/>
+"""
+    for j in i['categories']:
+        cat = cat + """ <category scheme='http://www.blogger.com/atom/ns#' term='%s'/>
+""" % j
+    d = i['date'].split()
+    date="%sT%s.000-00:00" % (d[0], d[1])
+    number = number + 1
+    title = escape(i['title']).replace("'", "")
+    output = output + """<entry>
+ <id>post-%d</id>
+ <published>%s</published>
+ %s <title type='text'>%s</title>
+ <content type='html'>%s</content>
+ <link rel='self'
+       type='application/atom+xml'
+       href='http://www.blogger.com/feeds/feh/posts/default/%d'/>
+ <author>
+   <name>%s</name>
+   <uri>http://www.blogger.com/profile/%s</uri>
+   <email>noreply@blogger.com</email>
+ </author>
+</entry>
+""" % (number,
+       date,
+       cat,
+       escape(i['title']),
+       escape(i['content']),
+       number,
+       AUTHOR_NAME,
+       AUTHOR_ID)
+
+    comment = 0
+    for j in i['comments']:
+        d = j['date'].split()
+        date = "%sT%s.000-00:00" % (d[0], d[1])
+        author = "<author>\n"
+
+        if len(j['author']):
+            author = author + "  <name>%s</name>\n" % j['author']
+
+        if len(j['url']):
+            author = author + "  <uri>%s</uri>\n" % j['url']
+
+        if len(j['email']):
+            author = author + "  <email>%s</email>\n" % j['email']
+
+        author = author + " </author>"
+        comment = comment + 1
+        output = output + """<entry>
+ <id>post-%d.comment-%d</id>
+ <published>%s</published>
+ <category scheme='http://schemas.google.com/g/2005#kind'
+           term='http://schemas.google.com/blogger/2008/kind#comment'/>
+ <content type='html'>%s</content>
+ <link rel='self'
+       type='application/atom+xml'
+       href='http://www.blogger.com/feeds/feh/comments/default/%d'/>
+ %s
+ <thr:in-reply-to href='http://www.blogger.com/feeds/2746484575476953423/posts/default/%d'
+                  ref='post-%d'
+                  type='application/atom+xml'/>
+</entry>
+""" % (number,
+       comment,
+       date,
+       escape(j['content']),
+       comment,
+       author,
+       number,
+       number)
+
+    if number % 4 == 0:
+        output = output + "</feed>\n"
+        fd = open("output-%03d.xml" % number, "w")
+        fd.write(output.encode("utf-8"))
+        fd.close()
+        output = ""
+
+if output != "":
+    output = output + "</feed>\n"
+    fd = open("output-%03d.xml" % number, "w")
+    fd.write(output.encode("utf-8"))
+    fd.close()
