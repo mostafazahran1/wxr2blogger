@@ -47,9 +47,52 @@ GENERAL COMMENTS
 KNOWN ISSUES
 ------------
 
+  * If you see an error message like this:
+
+        xml.parsers.expat.ExpatError: unbound prefix: line 1421, column 0
+
+    then you've run into a problem with malformed WXR output from
+    WordPress.  Unfortunately, until the WordPress developers address
+    this, you will need to use a workaround.  Look at the top of
+    your WXR file - you should see something that looks like this:
+
+        <rss version="2.0"
+               xmlns:content="http://purl.org/rss/1.0/modules/content/"
+               xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+               xmlns:dc="http://purl.org/dc/elements/1.1/"
+               xmlns:wp="http://wordpress.org/export/1.0/"
+        >
+
+    Add the following in before the last ">":
+
+               xmlns:excerpt="http://www.example.com/the/excerpt/namespace"
+
+    so that the it looks like this:
+
+        <rss version="2.0"
+               xmlns:content="http://purl.org/rss/1.0/modules/content/"
+               xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+               xmlns:dc="http://purl.org/dc/elements/1.1/"
+               xmlns:wp="http://wordpress.org/export/1.0/"
+               xmlns:excerpt="http://www.example.com/the/excerpt/namespace"
+        >
+
+    Then try again.  See the WordPress ticket here:
+
+        http://trac.wordpress.org/ticket/7624
+
+    and the wxr2blogger ticket here:
+
+        http://code.google.com/p/wxr2blogger/issues/detail?id=1
+
   * Blogger seems to choke with large numbers of post in one Atom
     file, which is why this program generates a series of Atom files
     instead.  Feel free to experiment with the number of posts.
+    Look at top of the wxr2blogger script for the line that reads:
+
+        POSTCOUNT = 4
+
+    Change that to a larger number and see if Blogger accepts that.
 
   * Blogger stops importing new entries after a while: looks like
     there's a daily limit.  Unfortunately, the actual import appears
