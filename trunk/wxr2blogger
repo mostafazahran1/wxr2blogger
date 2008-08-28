@@ -23,6 +23,13 @@
 #
 #  The GNU General Public License is contained in the file COPYING.
 
+# Generate 4 posts per Atom file.  You might want to experiment
+# with this number, especially if you have a large blog.  Warning:
+# Blogger can choke if there's a large number of posts in your input
+# file, so caveat emptor.
+
+POSTCOUNT = 4
+
 import sys
 
 if len(sys.argv) != 4:
@@ -201,7 +208,7 @@ for i in ch['items']:
        number,
        number)
 
-    if number % 4 == 0:
+    if number % POSTCOUNT == 0:
         output = output + "</feed>\n"
         fd = open("output-%03d.xml" % number, "w")
         fd.write(output.encode("utf-8"))
