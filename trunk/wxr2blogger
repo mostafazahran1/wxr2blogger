@@ -127,6 +127,7 @@ def get_output():
 <feed xmlns='http://www.w3.org/2005/Atom'
       xmlns:openSearch='http://a9.com/-/spec/opensearchrss/1.0/'
       xmlns:thr='http://purl.org/syndication/thread/1.0'>
+<generator>Blogger</generator>
 """
 
 number = 0
