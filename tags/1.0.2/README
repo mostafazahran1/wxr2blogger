@@ -1,0 +1,124 @@
+OVERVIEW
+--------
+
+This program converts a WordPress WXR file into a series of Atom
+files suitable for importing into Blogger.  As of 8/26/08 you need
+to be using Blogger in Draft to access the import functionality.
+
+Post contents and dates are preserved.  Comment contents, author
+details and dates are preserved.  See the KNOWN ISSUES section below
+for caveats.
+
+
+USAGE
+-----
+
+Command line:
+
+  % wxr2blogger wxrfile author id
+
+  wxrfile is the WXR file from the WordPress export feature.
+  author is the name of the author of the posts: e.g. "Joe Soap"
+  id is the Blogger ID of the author of the posts.
+
+The output is left in files named "output-XXX.xml", where XXX is a
+number.
+
+You can get your Blogger ID by going into "View Profile" from your
+Blogger dashboard and looking at the URL in your browser's location
+bar.  It's the big number at the end of the URL.  Copy it exactly
+as you see it, leading zeros and all.
+
+
+GENERAL COMMENTS
+----------------
+
+  * This program is licensed under version 2 of the GNU General
+    Public License.
+
+  * This code was written and tested on Mac OS X 10.5 only.  I don't
+    believe I'm using any modules that you won't find on every
+    modern Python distribution, but let me know if you run into
+    problems running this on Linux or some other OS.
+
+  * Send any patches or bug reports to rjwalsh@durables.org
+
+
+KNOWN ISSUES
+------------
+
+  * If you see an error message like this:
+
+        xml.parsers.expat.ExpatError: unbound prefix: line 1421, column 0
+
+    then you've run into a problem with malformed WXR output from
+    WordPress.  Unfortunately, until the WordPress developers address
+    this, you will need to use a workaround.  Look at the top of
+    your WXR file - you should see something that looks like this:
+
+        <rss version="2.0"
+               xmlns:content="http://purl.org/rss/1.0/modules/content/"
+               xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+               xmlns:dc="http://purl.org/dc/elements/1.1/"
+               xmlns:wp="http://wordpress.org/export/1.0/"
+        >
+
+    Add the following in before the last ">":
+
+               xmlns:excerpt="http://www.example.com/the/excerpt/namespace"
+
+    so that the it looks like this:
+
+        <rss version="2.0"
+               xmlns:content="http://purl.org/rss/1.0/modules/content/"
+               xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+               xmlns:dc="http://purl.org/dc/elements/1.1/"
+               xmlns:wp="http://wordpress.org/export/1.0/"
+               xmlns:excerpt="http://www.example.com/the/excerpt/namespace"
+        >
+
+    Then try again.  See the WordPress ticket here:
+
+        http://trac.wordpress.org/ticket/7624
+
+    and the wxr2blogger ticket here:
+
+        http://code.google.com/p/wxr2blogger/issues/detail?id=1
+
+  * Blogger seems to choke with large numbers of post in one Atom
+    file, which is why this program generates a series of Atom files
+    instead.  Feel free to experiment with the number of posts.
+    Look at top of the wxr2blogger script for the line that reads:
+
+        POSTCOUNT = 4
+
+    Change that to a larger number and see if Blogger accepts that.
+
+  * Blogger stops importing new entries after a while: looks like
+    there's a daily limit.  Unfortunately, the actual import appears
+    to succeed, and you only notice something has gone wrong when
+    trying to view a post fails.  Make sure you view all posts after
+    importing to ensure you haven't hit this limit.  If you have,
+    wait a day (although I've noticed a few hours seems to work,
+    too) and continue importing then.
+
+  * Before publishing your blog entries, you might want to go through
+    them and make sure the HTML came across as you expected.  WXR
+    files don't have any images or attachments in them, so you need
+    to manually add them back in.  For images, that's fairly
+    straight-forward.  For attachments, it's a bit harder as Blogger
+    doesn't support attachments.
+
+  * I haven't tested every scenario, so if you hit a failure, let
+    me know.  One area that might cause problems is with categories
+    that have special characters (like ampersands) in them.  Let
+    me know if you hit this and what you did to fix it.
+
+  * All posts are assumed to have been created by the author specified
+    on the command line.  This would probably be relatively
+    straight-forward to fix with some form of
+    WordPress-author-to-Blogger-ID mapping.  If you're interested
+    in doing this, let me know.
+
+  * There are no comments in the code.  Some day I might get to
+    fixing that.
